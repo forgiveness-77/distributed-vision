@@ -46,7 +46,7 @@ Repository notes
 - System description: This repository contains the PC-side face recognition and tracking controller (`faceLockServo.py`), a simple web live dashboard (`frontend.html`), and an Arduino servo sketch (`servo_motor/servo_motor.ino`). The Python controller uses MediaPipe for face detection, an ArcFace ONNX embedder for recognition, and publishes servo angle commands via MQTT.
 
 - MQTT topics used:
-  - `face_tracking/servo_angle` — published by `faceLockServo.py` to instruct servo position (payload: integer angle 0-180).
+  - `vision/n1ghtc0d3/movement` — published by `faceLockServo.py` to instruct servo position (payload: integer angle 0-180).
 
 - Default MQTT broker (as set in the controller): `157.173.101.159:1883` — edit `faceLockServo.py` to change broker/port.
 

@@ -8,7 +8,7 @@ const char* password = "RCA@2025";
 const char* mqtt_server = "157.173.101.159";  
 const int mqtt_port = 1883;
 
-const char* topic_servo_angle = "face_tracking/servo_angle";
+const char* topic_servo_angle = "vision/n1ghtc0d3/movement";
 
 const int SERVO_PIN = D1;  
 

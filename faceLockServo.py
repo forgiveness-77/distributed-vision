@@ -26,7 +26,7 @@ LOCK_RELEASE_FRAMES = 30
 # MQTT Configuration
 MQTT_BROKER = "157.173.101.159"  # Change to your MQTT broker IP
 MQTT_PORT = 1883
-MQTT_TOPIC_SERVO_ANGLE = "face_tracking/servo_angle"
+MQTT_TOPIC_SERVO_ANGLE = "vision/n1ghtc0d3/movement"
 
 # MediaPipe settings
 MIN_DETECTION_CONFIDENCE = 0.5
