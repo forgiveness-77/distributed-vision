@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Face Tracker Dashboard</title>
+    <meta charset="utf-8">
+    <style>
+        body {
+            background: #1a1a1a;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #2d2d2d;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        h1 {
+            text-align: center;
+            color: #4CAF50;
+            margin-top: 0;
+        }
+        .status {
+            background: #363636;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        .connected {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        .disconnected {
+            color: #f44336;
+            font-weight: bold;
+        }
+        .meter {
+            width: 100%;
+            height: 30px;
+            background: #1e1e1e;
+            border-radius: 15px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+        .meter-fill {
+            height: 100%;
+            width: 50%;
+            background: #4CAF50;
+            transition: width 0.2s;
+        }
+        .angle {
+            font-size: 48px;
+            text-align: center;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        .log {
+            background: #1e1e1e;
+            height: 250px;
+            overflow-y: auto;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button.danger {
+            background: #f44336;
+        }
+        button.danger:hover {
+            background: #d32f2f;
+        }
+        .broker-info {
+            background: #1e1e1e;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            margin-top: 10px;
+        }
+        .esp-output {
+            background: #0a0a0a;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            border-left: 3px solid #4CAF50;
+            font-size: 14px;
+        }
+    </style>
+    <!-- USE MQTT.JS LIBRARY - THIS IS THE CORRECT WAY -->
+    <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 FACE TRACKER DASHBOARD</h1>
+        
+        <!-- Connection Status -->
+        <div class="status">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <span id="connectionStatus" class="disconnected">● DISCONNECTED</span>
+                </div>
+                <div>
+                    <button onclick="connectMQTT()">🔌 CONNECT</button>
+                    <button onclick="disconnectMQTT()" class="danger">🔌 DISCONNECT</button>
+                </div>
+            </div>
+            <div class="broker-info">
+                📡 MQTT Broker: 157.173.101.159:1883 (MQTT)<br>
+                📋 Topic: face_tracking/servo_angle<br>
+            </div>
+        </div>
+        
+        <!-- Servo Position -->
+        <div class="status">
+            <h3 style="margin-top: 0;">🔄 SERVO POSITION</h3>
+            <div class="meter">
+                <div class="meter-fill" id="servoFill" style="width: 50%"></div>
+            </div>
+            <div class="angle" id="angleDisplay">90°</div>
+            <div style="display: flex; justify-content: space-between; margin-top: 10px;">
+                <span>⬅️ LEFT (180°)</span>
+                <span>⬆️ CENTER (90°)</span>
+                <span>➡️ RIGHT (0°)</span>
+            </div>
+        </div>
+        
+        <!-- Movement Status -->
+        <div class="status">
+            <h3 style="margin-top: 0;">🎯 MOVEMENT</h3>
+            <div id="movementDisplay" style="font-size: 24px; text-align: center; padding: 10px;">WAITING...</div>
+            <div id="lastUpdate" style="text-align: center; margin-top: 5px; color: #888;"></div>
+        </div>
+        
+        <!-- ESP8266 Monitor (Subscribes to same topic to see ESP responses) -->
+        <div class="status">
+            <h3 style="margin-top: 0;">📟 ESP8266 FEEDBACK</h3>
+            <div id="espOutput" class="esp-output">
+                ⏳ Waiting for ESP8266 responses...
+            </div>
+        </div>
+        
+        <!-- Live Log -->
+        <div class="status">
+            <h3 style="margin-top: 0;">📋 LIVE MESSAGES</h3>
+            <div class="log" id="logMessages"></div>
+            <button onclick="clearLog()" style="margin-top: 10px;">🧹 CLEAR LOG</button>
+        </div>
+    </div>
+
+    <script>
+        // ========== CONFIGURATION ==========
+        const BROKER_IP = '157.173.101.159';
+        const MQTT_PORT = 1883;  // Standard MQTT port
+        const WS_PORT = 9001;     // WebSocket port for MQTT
+        const TOPIC = 'face_tracking/servo_angle';
+        
+        // ========== GLOBALS ==========
+        let mqttClient = null;
+        let connected = false;
+        let lastAngle = 90;
+        let reconnectTimeout = null;
+        
+        // ========== DOM ELEMENTS ==========
+        const connectionStatus = document.getElementById('connectionStatus');
+        const servoFill = document.getElementById('servoFill');
+        const angleDisplay = document.getElementById('angleDisplay');
+        const movementDisplay = document.getElementById('movementDisplay');
+        const espOutput = document.getElementById('espOutput');
+        const logMessages = document.getElementById('logMessages');
+        const lastUpdate = document.getElementById('lastUpdate');
+        
+        // ========== LOGGING ==========
+        function addLog(message, type = 'info') {
+            const entry = document.createElement('div');
+            const time = new Date().toLocaleTimeString();
+            
+            let color = '#888';
+            if (type === 'mqtt') color = '#4CAF50';
+            if (type === 'esp') color = '#00ff00';
+            if (type === 'angle') color = '#4CAF50';
+            if (type === 'error') color = '#f44336';
+            
+            entry.style.color = color;
+            entry.style.marginBottom = '3px';
+            entry.style.fontWeight = (type === 'angle' || type === 'esp') ? 'bold' : 'normal';
+            entry.innerHTML = `<span style="color: #888;">[${time}]</span> ${message}`;
+            
+            logMessages.appendChild(entry);
+            logMessages.scrollTop = logMessages.scrollHeight;
+            
+            while (logMessages.children.length > 30) {
+                logMessages.removeChild(logMessages.children[0]);
+            }
+        }
+        
+        // ========== CLEAR LOG ==========
+        function clearLog() {
+            logMessages.innerHTML = '';
+            addLog('📋 Log cleared');
+        }
+        
+        // ========== UPDATE SERVO DISPLAY ==========
+        function updateServo(angle) {
+            // Store previous angle
+            let previousAngle = lastAngle;
+            lastAngle = angle;
+            
+            // Update meter
+            const percent = (angle / 180) * 100;
+            servoFill.style.width = percent + '%';
+            
+            // Update angle text
+            angleDisplay.textContent = angle + '°';
+            
+            // Update movement status
+            if (angle < 60) {
+                movementDisplay.innerHTML = '➡️ MOVING RIGHT';
+                movementDisplay.style.color = '#2196F3';
+                servoFill.style.background = '#2196F3';
+            } else if (angle > 120) {
+                movementDisplay.innerHTML = '⬅️ MOVING LEFT';
+                movementDisplay.style.color = '#FF9800';
+                servoFill.style.background = '#FF9800';
+            } else {
+                movementDisplay.innerHTML = '⬆️ CENTERED';
+                movementDisplay.style.color = '#4CAF50';
+                servoFill.style.background = '#4CAF50';
+            }
+            
+            // Show timestamp
+            lastUpdate.innerHTML = `Last update: ${new Date().toLocaleTimeString()}`;
+            
+            // Log angle change
+            if (angle !== previousAngle) {
+                addLog(`🎯 Servo angle: ${angle}° (was ${previousAngle}°)`, 'angle');
+            }
+        }
+        
+        // ========== CONNECT TO MQTT BROKER ==========
+        function connectMQTT() {
+            addLog(`🔄 Connecting to MQTT broker at ${BROKER_IP}...`);
+            
+            // TRY MULTIPLE CONNECTION METHODS
+            
+            // Method 1: MQTT over WebSockets (most common for web)
+            const wsUrl = `ws://${BROKER_IP}:${WS_PORT}`;
+            addLog(`📡 Trying WebSocket connection: ${wsUrl}`);
+            
+            try {
+                // Create MQTT client with WebSocket
+                mqttClient = mqtt.connect(wsUrl, {
+                    clientId: 'dashboard_' + Math.random().toString(16).substring(2, 8),
+                    clean: true,
+                    reconnectPeriod: 5000,
+                    connectTimeout: 30000
+                });
+                
+                setupMQTTCallbacks();
+            } catch (e) {
+                addLog(`❌ WebSocket connection failed: ${e.message}`, 'error');
+                
+                // Method 2: Try direct MQTT over TCP (if browser supports it - rare)
+                addLog(`📡 Trying direct MQTT: ${BROKER_IP}:${MQTT_PORT}`);
+                
+                try {
+                    mqttClient = mqtt.connect(`mqtt://${BROKER_IP}:${MQTT_PORT}`, {
+                        clientId: 'dashboard_' + Math.random().toString(16).substring(2, 8),
+                        clean: true,
+                        reconnectPeriod: 5000
+                    });
+                    
+                    setupMQTTCallbacks();
+                } catch (e2) {
+                    addLog(`❌ Direct MQTT failed: ${e2.message}`, 'error');
+                    addLog(`💡 Make sure your MQTT broker has WebSockets enabled on port 9001`, 'error');
+                }
+            }
+        }
+        
+        // ========== SETUP MQTT CALLBACKS ==========
+        function setupMQTTCallbacks() {
+            if (!mqttClient) return;
+            
+            mqttClient.on('connect', function() {
+                connected = true;
+                connectionStatus.innerHTML = '● CONNECTED';
+                connectionStatus.className = 'connected';
+                addLog('✅ Connected to MQTT broker!', 'mqtt');
+                
+                // Subscribe to topic
+                mqttClient.subscribe(TOPIC, function(err) {
+                    if (!err) {
+                        addLog(`📡 Subscribed to: ${TOPIC}`, 'mqtt');
+                        espOutput.innerHTML = `✅ Connected to broker<br>📡 Subscribed to: ${TOPIC}<br>⏳ Waiting for messages...`;
+                    } else {
+                        addLog(`❌ Subscription failed: ${err}`, 'error');
+                    }
+                });
+                
+                // Also subscribe to ESP8266 responses if they publish to same topic
+                mqttClient.subscribe('face_tracking/esp_response', function(err) {
+                    if (!err) {
+                        addLog(`📡 Subscribed to ESP feedback`);
+                    }
+                });
+            });
+            
+            mqttClient.on('message', function(topic, message) {
+                // Convert message to string
+                const payload = message.toString();
+                const timestamp = new Date().toLocaleTimeString();
+                
+                // Log the raw message
+                addLog(`📨 [${topic}] ${payload}`, 'mqtt');
+                
+                // PARSE THE MESSAGE - TRY MULTIPLE FORMATS
+                
+                // Format 1: Just a number (angle)
+                const angle = parseInt(payload);
+                if (!isNaN(angle) && angle >= 0 && angle <= 180) {
+                    updateServo(angle);
+                    return;
+                }
+                
+                // Format 2: ESP8266 output format
+                const espMatch = payload.match(/Servo moved to: (\d+) degrees/);
+                if (espMatch) {
+                    const espAngle = parseInt(espMatch[1]);
+                    updateServo(espAngle);
+                    
+                    // Update ESP output display
+                    espOutput.innerHTML = `🔄 SERVO COMMAND EXECUTED<br>Angle: ${espAngle}°<br>Time: ${timestamp}<br>ESP Response: ${payload}`;
+                    addLog(`📟 ESP8266: Servo → ${espAngle}°`, 'esp');
+                    return;
+                }
+                
+                // Format 3: JSON format
+                try {
+                    const json = JSON.parse(payload);
+                    if (json.angle) {
+                        updateServo(parseInt(json.angle));
+                        return;
+                    }
+                } catch(e) {
+                    // Not JSON, ignore
+                }
+                
+                // Format 4: WiFi/MQTT connection messages
+                if (payload.includes('WiFi connected')) {
+                    espOutput.innerHTML = `✅ WiFi Connected<br>${payload}`;
+                } else if (payload.includes('MQTT...connected')) {
+                    espOutput.innerHTML = `✅ MQTT Connected<br>${payload}`;
+                } else if (payload.includes('Servo moved')) {
+                    // Already handled above
+                } else {
+                    // Unknown message - still show in ESP output
+                    espOutput.innerHTML = `📨 Message received<br>Topic: ${topic}<br>Payload: ${payload}<br>Time: ${timestamp}`;
+                }
+            });
+            
+            mqttClient.on('error', function(err) {
+                addLog(`❌ MQTT Error: ${err.message}`, 'error');
+                connected = false;
+                connectionStatus.innerHTML = '● ERROR';
+                connectionStatus.className = 'disconnected';
+            });
+            
+            mqttClient.on('close', function() {
+                if (connected) {
+                    connected = false;
+                    connectionStatus.innerHTML = '● DISCONNECTED';
+                    connectionStatus.className = 'disconnected';
+                    addLog('🔌 Disconnected from broker', 'error');
+                    espOutput.innerHTML = '⏹️ Disconnected from broker<br>Click CONNECT to reconnect';
+                }
+            });
+            
+            mqttClient.on('offline', function() {
+                connected = false;
+                connectionStatus.innerHTML = '● OFFLINE';
+                connectionStatus.className = 'disconnected';
+            });
+        }
+        
+        // ========== DISCONNECT ==========
+        function disconnectMQTT() {
+            if (mqttClient) {
+                mqttClient.end(true, function() {
+                    addLog('🔌 Disconnected from broker');
+                });
+                mqttClient = null;
+                connected = false;
+                connectionStatus.innerHTML = '● DISCONNECTED';
+                connectionStatus.className = 'disconnected';
+            }
+        }
+        
+        // ========== TEST CONNECTION ==========
+        function testConnection() {
+            addLog(`🔍 Testing WebSocket connection to ${BROKER_IP}:${WS_PORT}...`);
+            
+            const testWs = new WebSocket(`ws://${BROKER_IP}:${WS_PORT}`);
+            testWs.onopen = function() {
+                addLog(`✅ WebSocket port ${WS_PORT} is open!`, 'mqtt');
+                testWs.close();
+            };
+            testWs.onerror = function() {
+                addLog(`❌ WebSocket port ${WS_PORT} is closed`, 'error');
+                addLog(`💡 Make sure your MQTT broker has WebSockets enabled on port 9001`, 'error');
+                addLog(`💡 For Mosquitto, add to config: listener 9001 protocol websockets`, 'error');
+            };
+        }
+        
+        // ========== INIT ==========
+        addLog('🚀 Dashboard ready - USING MQTT.JS LIBRARY');
+        addLog(`📡 Broker: ${BROKER_IP} (MQTT:${MQTT_PORT}, WebSocket:${WS_PORT})`);
+        addLog(`📋 Topic: ${TOPIC}`);
+        addLog('💡 Click CONNECT to start');
+        
+        // Auto-test WebSocket on load
+        setTimeout(testConnection, 1000);
+    </script>
+</body>
+</html>
