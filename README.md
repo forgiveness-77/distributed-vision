@@ -39,6 +39,7 @@ Frontend (viewing the UI)
   ```
 
   Then open: http://localhost:8000/frontend.html
+  The Live link: http://157.173.101.159:8316/visionDetector.html
 
 Repository notes
 ----------------
