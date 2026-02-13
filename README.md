@@ -62,27 +62,6 @@ What this repo includes
 - Web Live Dashboard: `frontend.html`
 - Servo Arduino sketch: `servo_motor/servo_motor.ino`
 
-Publishing this repository publicly
-----------------------------------
-
-I don't currently have a public GitHub repository for this workspace. I can prepare the local repository content (done here) and guide you to publish it. Run these commands from the project root to create a public repo and push:
-
-```bash
-git init
-git add .
-git commit -m "Initial commit: LiveFaceMonitoring"
-# Create a public repo on GitHub (replace <your-repo-url> after creating the repo manually)
-git remote add origin <your-repo-url>
-git branch -M main
-git push -u origin main
-```
-
-If you want, I can help create a GitHub repository for you and push these files — I would need permission (a GitHub token or Oauth flow) to do that on your behalf. Otherwise follow the manual steps above.
-
-If you'd like I can also:
-- Pin dependency versions in `requirements.txt`.
-- Add an ESP8266 example firmware that listens/publishes MQTT messages.
-- Create a sample GitHub Actions workflow for linting/tests.
 
 Arduino / Servo
 - Open `servo_motor/servo_motor.ino` in the Arduino IDE and upload to your board.
