@@ -15,6 +15,8 @@ Prerequisites
   pip install -r requirements.txt
   ```
 
+- Note: For detailed steps and the implementation used to build `faceLockServo.py`, see the FaceLocking project: https://github.com/forgiveness-77/FaceLocking
+
 - Arduino IDE (or compatible) to upload `servo_motor/servo_motor.ino` to a board.
 
 Quick run (recommended)
@@ -37,6 +39,55 @@ Frontend (viewing the UI)
   ```
 
   Then open: http://localhost:8000/frontend.html
+
+Repository notes
+----------------
+
+- System description: This repository contains the PC-side face recognition and tracking controller (`faceLockServo.py`), a simple web live dashboard (`frontend.html`), and an Arduino servo sketch (`servo_motor/servo_motor.ino`). The Python controller uses MediaPipe for face detection, an ArcFace ONNX embedder for recognition, and publishes servo angle commands via MQTT.
+
+- MQTT topics used:
+  - `face_tracking/servo_angle` — published by `faceLockServo.py` to instruct servo position (payload: integer angle 0-180).
+
+- Default MQTT broker (as set in the controller): `157.173.101.159:1883` — edit `faceLockServo.py` to change broker/port.
+
+- Live dashboard URL:
+  - If you serve the folder locally using `python -m http.server 8000`, open:
+
+    http://localhost:8000/frontend.html
+
+What this repo includes
+-----------------------
+
+- PC face recognition/tracking code: `faceLockServo.py`
+- Web Live Dashboard: `frontend.html`
+- Servo Arduino sketch: `servo_motor/servo_motor.ino`
+
+Missing / Optional components
+-----------------------------
+
+- ESP8266 firmware: not included. If you need an ESP8266-based client (instead of the Arduino sketch), tell me target pinout and MQTT expectations and I can add an example firmware sketch that subscribes/publishes to the MQTT topics above.
+
+Publishing this repository publicly
+----------------------------------
+
+I don't currently have a public GitHub repository for this workspace. I can prepare the local repository content (done here) and guide you to publish it. Run these commands from the project root to create a public repo and push:
+
+```bash
+git init
+git add .
+git commit -m "Initial commit: LiveFaceMonitoring"
+# Create a public repo on GitHub (replace <your-repo-url> after creating the repo manually)
+git remote add origin <your-repo-url>
+git branch -M main
+git push -u origin main
+```
+
+If you want, I can help create a GitHub repository for you and push these files — I would need permission (a GitHub token or Oauth flow) to do that on your behalf. Otherwise follow the manual steps above.
+
+If you'd like I can also:
+- Pin dependency versions in `requirements.txt`.
+- Add an ESP8266 example firmware that listens/publishes MQTT messages.
+- Create a sample GitHub Actions workflow for linting/tests.
 
 Arduino / Servo
 - Open `servo_motor/servo_motor.ino` in the Arduino IDE and upload to your board.
