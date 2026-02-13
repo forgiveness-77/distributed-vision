@@ -73,10 +73,6 @@ Arduino / Servo
 
 Integration notes
 - Connect the Arduino to the computer via USB if `faceLockServo.py` expects serial communication. Ensure the script's serial port matches the Arduino COM/tty device.
-- If the Python controller accesses the camera, allow camera permission in your browser (for the frontend) or ensure the camera is available to the Python process.
+- If the Python controller accesses the camera and ensure the camera is available to the Python process.
 
-Troubleshooting
-- If the camera doesn't appear in the browser, try serving the HTML (see Option B) or use a different browser.
-- If servo doesn't respond, check COM port, baud rate (match Arduino sketch), and common ground.
 
-Want me to run or test any part of this now? I can try launching the Python controller or serve the frontend for you.
