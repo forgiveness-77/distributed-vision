@@ -62,11 +62,6 @@ What this repo includes
 - Web Live Dashboard: `frontend.html`
 - Servo Arduino sketch: `servo_motor/servo_motor.ino`
 
-Missing / Optional components
------------------------------
-
-- ESP8266 firmware: not included. If you need an ESP8266-based client (instead of the Arduino sketch), tell me target pinout and MQTT expectations and I can add an example firmware sketch that subscribes/publishes to the MQTT topics above.
-
 Publishing this repository publicly
 ----------------------------------
 
